@@ -1,0 +1,21 @@
+FROM python:3.10
+
+# Install dependencies
+RUN apt-get update && apt-get install -y wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python packages
+RUN pip install pandas sqlalchemy psycopg2
+
+# Set the working directory
+WORKDIR /app
+
+# Copy the script into the container
+COPY upload_data.py upload_data.py
+
+# Use an unprivileged user (optional but recommended)
+RUN useradd -m uploader
+USER uploader
+
+# Set the entry point to run the script
+ENTRYPOINT [ "python", "upload_data.py" ]

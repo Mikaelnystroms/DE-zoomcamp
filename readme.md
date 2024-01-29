@@ -1,0 +1,1 @@
+This is the repository for all the modules of data engineering zoomcamp 2024 held by DataTalks.Club

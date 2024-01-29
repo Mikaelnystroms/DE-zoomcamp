@@ -1,0 +1,116 @@
+postgres server
+
+docker volume create --name dtc_postgres_volume_local -d local
+
+
+  docker run -it\
+  -e POSTGRES_USER="root" \
+  -e POSTGRES_PASSWORD="root" \
+  -e POSTGRES_DB="ny_taxi" \
+  -v dtc_postgres_volume_local:/var/lib/postgresql/data \
+  -p 5432:5432 \
+  postgres:13
+
+
+  pgcli -h localhost -p 5432 -u root -d ny_taxi
+
+  docker run -it \
+  -e PGADMIN_DEFAULT_EMAIL="admin@admin.com" \
+  -e PGADMIN_DEFAULT_PASSWORD="root" \
+  -p 8080:80 \
+  dpage/pgadmin4
+
+  docker run -it\
+  -e POSTGRES_USER="root" \
+  -e POSTGRES_PASSWORD="root" \
+  -e POSTGRES_DB="ny_taxi" \
+  -v dtc_postgres_volume_local:/var/lib/postgresql/data \
+  -p 5432:5432 \
+  --network=pg-network \
+  --name pgdatabase \
+  postgres:13
+
+    docker run -it \
+  -e PGADMIN_DEFAULT_EMAIL="admin@admin.com" \
+  -e PGADMIN_DEFAULT_PASSWORD="root" \
+  -p 8080:80 \
+  --network=pg-network \
+  --name pgadmin \
+  dpage/pgadmin4
+
+
+  d1b48ce1a9714c9cebcc1b81cbcbdddd4e32ffb2b9871e4c3f18511733799993
+
+  sudo chown mikaelnystrom:mikaelnystrom ny_taxi_postgres_data/ -R
+  sudo usermod -aG docker mikaelnystrom
+
+  jupyter nbconvert --to=script upload_data.ipynb
+
+
+URL="https://github.com/DataTalksClub/nyc-tlc-data/releases/download/yellow/yellow_tripdata_2021-07.csv.gz"
+python upload_data.py \
+  --user=root \
+  --password=root \
+  --host=localhost \
+  --port=5432 \
+  --db=ny_taxi \
+  --table_name=yellow_taxi_data \
+  --url=${URL}
+    
+docker build -t taxi_ingest:v1 .
+
+URL="https://github.com/DataTalksClub/nyc-tlc-data/releases/download/green/green_tripdata_2019-09.csv.gz"
+docker run -it \
+  --network=pg-network \
+  taxi_ingest:v1 \
+    --user=root \
+    --password=root \
+    --host=pgdatabase \
+    --port=5432 \
+    --db=ny_taxi \
+    --table_name=yellow_taxi_2019 \
+    --url=${URL}
+
+
+SQL Queries for the homework
+
+
+Finding the amount of trips on a specific day
+
+SELECT COUNT(*) as totaltrips
+FROM green_taxi_data
+WHERE DATE(lpep_pickup_datetime) = '2019-09-18' 
+AND DATE(lpep_dropoff_datetime) = '2019-09-18'
+
+
+Finding the largest trip distance between two dates
+
+SELECT DATE(lpep_pickup_datetime) as pickuptime, SUM(trip_distance) as total_distance
+FROM green_taxi_data
+WHERE lpep_pickup_datetime > '2019-09-17' AND lpep_pickup_datetime < '2019-09-27'
+GROUP BY DATE(lpep_pickup_datetime)
+ORDER BY total_distance DESC
+
+Finding the three biggest pick up Boroughs
+
+SELECT zones."Borough", SUM(green_taxi_data."total_amount") as totalamount
+FROM green_taxi_data
+INNER JOIN zones ON zones."LocationID" = green_taxi_data."PULocationID"
+WHERE DATE(green_taxi_data."lpep_pickup_datetime") = '2019-09-18'
+GROUP BY zones."Borough"
+ORDER BY TotalAmount DESC
+
+
+Finding the largest tip, result was "Woodside" and none of the options available...Struggled with this one
+
+SELECT dropoff_zones."Zone" as dropoffzone, MAX(green_taxi_data."tip_amount") as largesttip
+FROM green_taxi_data
+INNER JOIN zones as pickup_zones ON pickup_zones."LocationID" = green_taxi_data."PULocationID"
+INNER JOIN zones as dropoff_zones ON dropoff_zones."LocationID" = green_taxi_data."DOLocationID"
+WHERE DATE_PART('month', green_taxi_data."lpep_pickup_datetime") = 9 
+AND DATE_PART('year', green_taxi_data."lpep_pickup_datetime") = 2019
+AND pickup_zones."Zone" = 'Astoria'
+GROUP BY dropoff_zones."Zone"
+ORDER BY LargestTip DESC
+LIMIT 5
+
